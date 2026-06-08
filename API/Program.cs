@@ -1,4 +1,12 @@
 
+using API.Exceptions;
+using Application.Behaviors;
+using Application.Common.Interface;
+using FluentValidation;
+using Infrastructure.Data;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
 namespace API;
 
 public class Program
@@ -7,13 +15,30 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        builder.Services.AddProblemDetails();
+
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
         // Add services to the container.
 
         builder.Services.AddControllers();
+        builder.Services.AddMediatR(options =>
+        {
+            options.RegisterServicesFromAssembly(typeof(Application.IAssemblyMarker).Assembly);
+        });
+
+        builder.Services.AddValidatorsFromAssembly(typeof(Application.IAssemblyMarker).Assembly);
+
+        builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source = app.db"));
+
+        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidatorBehavior<,>));
+
+        builder.Services.AddScoped<IAppDbContext, AppDbContext>();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
 
         var app = builder.Build();
+        app.UseExceptionHandler();
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
